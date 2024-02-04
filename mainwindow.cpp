@@ -248,7 +248,7 @@ void MainWindow::on_autorestart_with_time_checkBox_stateChanged(int autorestart_
         for (int i = 0; i < 24; ++i) {
             QCheckBox* checkBox = findChild<QCheckBox*>(QString("autorestart_with_time_checkBox_%1").arg(i, 2, 10, QChar('0')));
             if (checkBox && checkBox->isChecked()) {
-                restartTimes.insert(i);
+                restartTimes.append(i);
                 anyChecked = true;
             }
         }

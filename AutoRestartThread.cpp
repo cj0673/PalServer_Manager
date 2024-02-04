@@ -53,7 +53,7 @@ void AutoRestartThread::run() {
     }
 }
 
-void AutoRestartThread::setRestartTimes(const QSet<int>& times) {
+void AutoRestartThread::setRestartTimes(const QList<int>& times) {
     QMutexLocker locker(&mutex);
     restartTimes.clear();
     for (int time : times) {

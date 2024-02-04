@@ -37,6 +37,6 @@ private:
     RCONClient rconClient;
     AutoRestartThread *autoRestartThread;
     OtherThread *otherThread;
-    QSet<int> restartTimes;
+    QList<int> restartTimes;
 };
 #endif // MAINWINDOW_H

@@ -15,7 +15,7 @@ public:
     void stopThread();
     void setAutoRestartEnabled(bool enabled);
     void setReconnectCallback(const std::function<void()>& callback);
-    void setRestartTimes(const QSet<int>& times);
+    void setRestartTimes(const QList<int>& times);
 
 signals:
     void updateStatus(QString status);
