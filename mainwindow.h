@@ -4,6 +4,8 @@
 #include <QMainWindow>
 
 #include "RCONClient.h"
+#include "AutoRestartThread.h"
+#include "OtherThread.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -21,18 +23,20 @@ public:
 
 private slots:
     void on_connect_rcon_pushButton_clicked();
-
     void on_connect_rcon_command_info_clicked();
-
     void on_connect_rcon_command_showplayers_clicked();
-
     void on_connect_rcon_command_save_clicked();
-
     void on_connect_rcon_command_shutdown_clicked();
+    void on_connect_rcon_command_broadcast_clicked();
+    void on_server_restart_clicked();
+    void on_server_start_clicked();
+    void on_autorestart_with_time_checkBox_stateChanged(int arg1);
 
 private:
     Ui::MainWindow *ui;
-
     RCONClient rconClient;
+    AutoRestartThread *autoRestartThread;
+    OtherThread *otherThread;
+    QSet<int> restartTimes;
 };
 #endif // MAINWINDOW_H

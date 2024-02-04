@@ -18,6 +18,11 @@ RCONClient::~RCONClient() {
 }
 
 bool RCONClient::Connect(const std::string& ipAddress, int port, const std::string& password) {
+    if (rconSocket != INVALID_SOCKET) {
+        closesocket(rconSocket);
+        rconSocket = INVALID_SOCKET;
+    }
+
     rconSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (rconSocket == INVALID_SOCKET) {
         return false;
@@ -25,23 +30,30 @@ bool RCONClient::Connect(const std::string& ipAddress, int port, const std::stri
 
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
-
     if (inet_pton(AF_INET, ipAddress.c_str(), &server.sin_addr) <= 0) {
+        closesocket(rconSocket);
+        rconSocket = INVALID_SOCKET;
         return false;
     }
 
     if (connect(rconSocket, (struct sockaddr*)&server, sizeof(server)) < 0) {
+        closesocket(rconSocket);
+        rconSocket = INVALID_SOCKET;
         return false;
     }
 
     RCONPacket authPacket;
     initPacket(authPacket, 1, 3, password);
     if (!sendPacket(authPacket)) {
+        closesocket(rconSocket);
+        rconSocket = INVALID_SOCKET;
         return false;
     }
 
     RCONPacket response;
     if (!receivePacket(response) || response.id == -1) {
+        closesocket(rconSocket);
+        rconSocket = INVALID_SOCKET;
         return false;
     }
 
@@ -51,12 +63,17 @@ bool RCONClient::Connect(const std::string& ipAddress, int port, const std::stri
 void RCONClient::initPacket(RCONPacket& packet, int id, int type, const std::string& command) {
     packet.id = id;
     packet.type = type;
-    int commandLength = static_cast<int>(command.length());
-    if (commandLength > sizeof(packet.body) - 2) {
+
+    int commandBytes = static_cast<int>(command.size());
+    if (commandBytes >= sizeof(packet.body)) {
         throw std::runtime_error("Command too long");
     }
-    strcpy_s(packet.body, command.c_str());
-    packet.size = sizeof(packet.id) + sizeof(packet.type) + commandLength + 2;
+
+    memcpy(packet.body, command.c_str(), commandBytes);
+
+    packet.body[commandBytes] = '\0';
+
+    packet.size = sizeof(packet.id) + sizeof(packet.type) + commandBytes + 2;
 }
 
 bool RCONClient::sendPacket(RCONPacket& packet) {
@@ -79,16 +96,32 @@ bool RCONClient::receivePacket(RCONPacket& packet) {
     std::unique_ptr<char[]> buffer(new char[4096]);
     int received = recv(rconSocket, buffer.get(), 4096, 0);
     if (received > 0) {
+        memset(packet.body, 0, sizeof(packet.body));
+
         memcpy(&packet.size, buffer.get(), sizeof(packet.size));
         memcpy(&packet.id, buffer.get() + sizeof(packet.size), sizeof(packet.id));
         memcpy(&packet.type, buffer.get() + sizeof(packet.size) + sizeof(packet.id), sizeof(packet.type));
-        strcpy_s(packet.body, buffer.get() + sizeof(packet.size) + sizeof(packet.id) + sizeof(packet.type));
+
+        int headerSize = sizeof(packet.size) + sizeof(packet.id) + sizeof(packet.type);
+        int bodySize = received - headerSize;
+        if (bodySize > sizeof(packet.body) - 1) {
+            bodySize = sizeof(packet.body) - 1;
+        }
+
+        memcpy(packet.body, buffer.get() + headerSize, bodySize);
+
+        packet.body[bodySize] = '\0';
+
         return true;
     }
     return false;
 }
 
 bool RCONClient::SendCommand(const std::string& command, std::string& response) {
+    if (rconSocket == INVALID_SOCKET) {
+        throw std::runtime_error("Not connected to RCON server.");
+    }
+
     RCONPacket commandPacket;
     initPacket(commandPacket, 2, 2, command);
     if (!sendPacket(commandPacket)) {
@@ -100,6 +133,6 @@ bool RCONClient::SendCommand(const std::string& command, std::string& response) 
         return false;
     }
 
-    response = responsePacket.body;
+    response = std::string(responsePacket.body, strlen(responsePacket.body));
     return true;
 }

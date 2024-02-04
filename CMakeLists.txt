@@ -28,6 +28,10 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_SOURCES}
         RCONClient.h
         RCONClient.cpp
+        AutoRestartThread.h
+        AutoRestartThread.cpp
+        OtherThread.h
+        OtherThread.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET PalServer_Manager APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
