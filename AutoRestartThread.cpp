@@ -108,12 +108,13 @@ QDateTime AutoRestartThread::calculateNextRestartTime() {
     }
 
     foreach (int hour, restartTimes) {
-        QDateTime restartTime = QDateTime(now.date(), QTime(hour, 0));
-        if (now < restartTime) {
-            return restartTime;
+        QDateTime restartTimeToday = QDateTime(now.date(), QTime(hour, 0));
+        QDateTime restartTimeNextDay = QDateTime(now.date().addDays(1), QTime(hour, 0));
+        if (now < restartTimeToday) {
+            return restartTimeToday;
         }
-        if (!earliestNextDayRestartTime.isValid() || restartTime < earliestNextDayRestartTime) {
-            earliestNextDayRestartTime = QDateTime(now.date().addDays(1), QTime(hour, 0));
+        if (!earliestNextDayRestartTime.isValid() || restartTimeNextDay < earliestNextDayRestartTime) {
+            earliestNextDayRestartTime = restartTimeNextDay;
         }
     }
 
