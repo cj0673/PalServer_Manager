@@ -12,14 +12,29 @@ void AutoRestartThread::setAutoRestartEnabled(bool enabled) {
     }
 }
 
+void AutoRestartThread::setRestartTimes(const QList<int>& times) {
+    QMutexLocker locker(&mutex);
+    restartTimes.clear();
+    for (int time : times) {
+        restartTimes.append(time);
+    }
+
+    nextRestart = QDateTime();
+    getNextRestart = true;
+}
+
+void AutoRestartThread::setReconnectCallback(const std::function<void()>& callback) {
+    reconnectCallback = callback;
+}
+
 void AutoRestartThread::run() {
     const QVector<int> warningMinutes = {30, 20, 10, 7, 5, 4, 3, 2, 1};
 
     while (active) {
         {
             QMutexLocker locker(&mutex);
-            while (!autoRestartEnabled && active) {
-                condition.wait(&mutex, 100);
+            while (active && !autoRestartEnabled) {
+                condition.wait(&mutex);
             }
         }
 
@@ -51,21 +66,6 @@ void AutoRestartThread::run() {
             QThread::msleep(100);
         }
     }
-}
-
-void AutoRestartThread::setRestartTimes(const QList<int>& times) {
-    QMutexLocker locker(&mutex);
-    restartTimes.clear();
-    for (int time : times) {
-        restartTimes.append(time);
-    }
-
-    nextRestart = QDateTime();
-    getNextRestart = true;
-}
-
-void AutoRestartThread::setReconnectCallback(const std::function<void()>& callback) {
-    reconnectCallback = callback;
 }
 
 void AutoRestartThread::performRestartOperations() {
@@ -101,7 +101,6 @@ void AutoRestartThread::sendRestartWarning(int minutes) {
 
 QDateTime AutoRestartThread::calculateNextRestartTime() {
     QDateTime now = QDateTime::currentDateTime();
-    QDateTime earliestNextDayRestartTime;
 
     if (restartTimes.isEmpty()) {
         return QDateTime();
@@ -109,16 +108,12 @@ QDateTime AutoRestartThread::calculateNextRestartTime() {
 
     foreach (int hour, restartTimes) {
         QDateTime restartTimeToday = QDateTime(now.date(), QTime(hour, 0));
-        QDateTime restartTimeNextDay = QDateTime(now.date().addDays(1), QTime(hour, 0));
         if (now < restartTimeToday) {
             return restartTimeToday;
         }
-        if (!earliestNextDayRestartTime.isValid() || restartTimeNextDay < earliestNextDayRestartTime) {
-            earliestNextDayRestartTime = restartTimeNextDay;
-        }
     }
 
-    return earliestNextDayRestartTime;
+    return QDateTime(now.date().addDays(1), QTime(restartTimes.first(), 0));
 }
 
 void AutoRestartThread::stopThread() {

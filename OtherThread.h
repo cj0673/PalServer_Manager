@@ -3,6 +3,8 @@
 
 #include <QThread>
 #include "RCONClient.h"
+#include <QMutex>
+#include <QWaitCondition>
 
 class OtherThread : public QThread {
     Q_OBJECT
@@ -22,8 +24,12 @@ protected:
 
 private:
     RCONClient *rconClient;
+    QMutex mutex;
+    QWaitCondition condition;
     bool active;
     bool triggerRestartFlag;
+
+    void performRestartOperations();
 };
 
 #endif // OTHERTHREAD_H

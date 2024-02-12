@@ -1,46 +1,69 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 
-#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-#include <QTextStream>
-#include <QMessageBox>
-#include <QString>
-#include <QInputDialog>
 #include <QProcess>
+#include <QMessageBox>
+#include <QInputDialog>
+
+// JSON處理
+#include <QJsonDocument>
+#include <QJsonObject>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    loadSettingsFromJson();
+    initializeAutoRestartThread();
+    initializeOtherThread();
+}
 
+MainWindow::~MainWindow()
+{
+    saveSettingsToJson();
+    autoRestartThread->stopThread();
+    otherThread->stopThread();
+    delete ui;
+}
 
-    QString tempPath = QDir::tempPath();
-    QString filePath = tempPath + QDir::separator() + "settings.txt";
+void MainWindow::saveSettingsToJson()
+{
+    QJsonObject rconSettingsObject;
+    rconSettingsObject["rcon_ip"] = ui->rcon_ip_lineEdit->text();
+    rconSettingsObject["rcon_port"] = ui->rcon_port_lineEdit->text().toInt();
+    rconSettingsObject["rcon_password"] = ui->rcon_password_lineEdit->text();
 
-    QFile file(filePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        QString strIp, strPort, strPassword;
-        if (!in.atEnd()) {
-            strIp = in.readLine();
-        }
-        if (!in.atEnd()) {
-            strPort = in.readLine();
-        }
-        if (!in.atEnd()) {
-            strPassword = in.readLine();
-        }
+    QJsonObject rootObject;
+    rootObject["rcon_settings"] = rconSettingsObject;
+
+    QJsonDocument settingsDoc(rootObject);
+    QFile file("PalServer_Manager.json");
+    if (file.open(QFile::WriteOnly)) {
+        file.write(settingsDoc.toJson());
+        file.close();
+    }
+}
+
+void MainWindow::loadSettingsFromJson() {
+    QFile file("PalServer_Manager.json");
+    if (file.open(QFile::ReadOnly)) {
+        QByteArray rawData = file.readAll();
         file.close();
 
-        ui->rcon_ip_lineEdit->setText(strIp);
-        ui->rcon_port_lineEdit->setText(strPort);
-        ui->rcon_password_lineEdit->setText(strPassword);
+        QJsonDocument settingsDoc(QJsonDocument::fromJson(rawData));
+        QJsonObject rootObject = settingsDoc.object();
+        QJsonObject rconSettingsObject = rootObject["rcon_settings"].toObject();
+
+        ui->rcon_ip_lineEdit->setText(rconSettingsObject["rcon_ip"].toString());
+        ui->rcon_port_lineEdit->setText(QString::number(rconSettingsObject["rcon_port"].toInt()));
+        ui->rcon_password_lineEdit->setText(rconSettingsObject["rcon_password"].toString());
     }
+}
 
-
+void MainWindow::initializeAutoRestartThread() {
     autoRestartThread = new AutoRestartThread(&rconClient, this);
     autoRestartThread->start();
     connect(autoRestartThread, &AutoRestartThread::updateStatus, this, [&](QString status) {
@@ -63,8 +86,9 @@ MainWindow::MainWindow(QWidget *parent)
             ui->rcon_response_textBrowser->setText("無法連接到 RCON 伺服器");
         }
     });
+}
 
-
+void MainWindow::initializeOtherThread() {
     otherThread = new OtherThread(&rconClient, this);
     otherThread->start();
     connect(otherThread, &OtherThread::updateStatus, this, [&](QString status) {
@@ -89,14 +113,6 @@ MainWindow::MainWindow(QWidget *parent)
     });
 }
 
-MainWindow::~MainWindow()
-{
-    autoRestartThread->stopThread();
-    otherThread->stopThread();
-
-    delete ui;
-}
-
 void MainWindow::on_connect_rcon_pushButton_clicked()
 {
     QString ip = ui->rcon_ip_lineEdit->text();
@@ -107,19 +123,6 @@ void MainWindow::on_connect_rcon_pushButton_clicked()
     std::string password_str = password.toStdString();
 
     if (rconClient.Connect(ip_str, port, password_str)) {
-        QString tempPath = QDir::tempPath();
-        QString filePath = tempPath + QDir::separator() + "settings.txt";
-        QFile file(filePath);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&file);
-
-            out << ip << "\n";
-            out << port << "\n";
-            out << password << "\n";
-
-            file.close();
-        }
-
         ui->connect_rcon_pushButton->setDisabled(true);
         ui->rcon_ip_lineEdit->setReadOnly(true);
         ui->rcon_port_lineEdit->setReadOnly(true);
