@@ -2,7 +2,7 @@
 #include <QDateTime>
 
 AutoRestartThread::AutoRestartThread(RCONClient *client, QObject *parent)
-    : QThread(parent), rconClient(client), active(true), autoRestartEnabled(false), getNextRestart(true) {}
+    : QThread(parent), rconClient(client), active(true), autoRestartEnabled(false), getNextRestart(true), restartTimesUpdated(false) {}
 
 void AutoRestartThread::setAutoRestartEnabled(bool enabled) {
     QMutexLocker locker(&mutex);
@@ -21,6 +21,7 @@ void AutoRestartThread::setRestartTimes(const QList<int>& times) {
 
     nextRestart = QDateTime();
     getNextRestart = true;
+    restartTimesUpdated = true;
 }
 
 void AutoRestartThread::setReconnectCallback(const std::function<void()>& callback) {
@@ -62,8 +63,13 @@ void AutoRestartThread::run() {
         }
 
         for (int i = 0; i < 600; ++i) {
-            if (!active || !autoRestartEnabled) break;
+            if (!active || !autoRestartEnabled || restartTimesUpdated) break;
             QThread::msleep(100);
+        }
+
+        if (restartTimesUpdated) {
+            restartTimesUpdated = false;
+            continue;
         }
     }
 }

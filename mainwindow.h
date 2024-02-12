@@ -28,13 +28,14 @@ private slots:
     void on_connect_rcon_command_broadcast_clicked();
     void on_server_restart_clicked();
     void on_server_start_clicked();
-    void on_autorestart_with_time_checkBox_stateChanged(int arg1);
 
 private:
     void saveSettingsToJson();
     void loadSettingsFromJson();
     void initializeAutoRestartThread();
     void initializeOtherThread();
+    void setupAutorestartCheckBoxes();
+    void updateRestartTimes();
 
     Ui::MainWindow *ui;
     RCONClient rconClient;

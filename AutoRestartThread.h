@@ -1,21 +1,23 @@
 #ifndef AUTORESTARTTHREAD_H
 #define AUTORESTARTTHREAD_H
 
+#include <QMutex>
 #include <QThread>
 #include <QDateTime>
-#include "RCONClient.h"
 #include <QWaitCondition>
-#include <QMutex>
+#include "RCONClient.h"
 
 class AutoRestartThread : public QThread {
     Q_OBJECT
 
 public:
-    AutoRestartThread(RCONClient *client, QObject *parent = nullptr);
-    void stopThread();
+    explicit AutoRestartThread(RCONClient *client, QObject *parent = nullptr);
+    void stopThread(); // 控制線程的停止
+
+    // 設置自動重啟
     void setAutoRestartEnabled(bool enabled);
-    void setReconnectCallback(const std::function<void()>& callback);
     void setRestartTimes(const QList<int>& times);
+    void setReconnectCallback(const std::function<void()>& callback);
 
 signals:
     void updateStatus(QString status);
@@ -25,23 +27,23 @@ protected:
     void run() override;
 
 private:
-    RCONClient *rconClient;
-    bool active;
-    bool autoRestartEnabled;
-    bool getNextRestart;
-    QDateTime nextRestart;
-
+    // 互斥鎖
     QWaitCondition condition;
     QMutex mutex;
 
-    void performRestartOperations();
+    RCONClient* rconClient; // RCON客戶端
+    std::function<void()> reconnectCallback; // 重連函數
+    QList<int> restartTimes; // 存儲重啟時間列表
+    QDateTime nextRestart; // 下一次重啟的時間
+    void sendRestartWarning(int minutes);// 發送重啟前警告
+    bool active; // 活動狀態標誌
+    bool autoRestartEnabled; // 自動重啟標誌
+    bool getNextRestart; // 是否要獲取下次重啟時間的標誌
+    bool restartTimesUpdated; // 重啟時間更新標誌
+
+    // 重啟和計算下次重啟時間
     QDateTime calculateNextRestartTime();
-
-    void sendRestartWarning(int minutes);
-
-    std::function<void()> reconnectCallback;
-
-    QList<int> restartTimes;
+    void performRestartOperations();
 };
 
 #endif // AUTORESTARTTHREAD_H

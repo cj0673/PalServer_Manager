@@ -19,6 +19,7 @@ MainWindow::MainWindow(QWidget *parent)
     loadSettingsFromJson();
     initializeAutoRestartThread();
     initializeOtherThread();
+    setupAutorestartCheckBoxes();
 }
 
 MainWindow::~MainWindow()
@@ -111,6 +112,17 @@ void MainWindow::initializeOtherThread() {
             ui->rcon_response_textBrowser->setText("無法連接到 RCON 伺服器");
         }
     });
+}
+
+void MainWindow::setupAutorestartCheckBoxes() {
+    connect(ui->autorestart_with_time_checkBox, &QCheckBox::stateChanged, this, &MainWindow::updateRestartTimes);
+
+    for (int i = 0; i < 24; ++i) {
+        QCheckBox* checkBox = findChild<QCheckBox*>(QString("autorestart_with_time_checkBox_%1").arg(i, 2, 10, QChar('0')));
+        if (checkBox) {
+            connect(checkBox, &QCheckBox::stateChanged, this, &MainWindow::updateRestartTimes);
+        }
+    }
 }
 
 void MainWindow::on_connect_rcon_pushButton_clicked()
@@ -243,34 +255,26 @@ void MainWindow::on_server_start_clicked()
     }
 }
 
-void MainWindow::on_autorestart_with_time_checkBox_stateChanged(int autorestart_with_time_checkBox) {
-    if (autorestart_with_time_checkBox == Qt::Checked) {
-        restartTimes.clear();
-        bool anyChecked = false;
-
-        for (int i = 0; i < 24; ++i) {
-            QCheckBox* checkBox = findChild<QCheckBox*>(QString("autorestart_with_time_checkBox_%1").arg(i, 2, 10, QChar('0')));
-            if (checkBox && checkBox->isChecked()) {
-                restartTimes.append(i);
-                anyChecked = true;
-            }
-        }
-
-        std::string response;
-        if (rconClient.SendCommand("info", response)) {
-            if (anyChecked) {
-                autoRestartThread->setRestartTimes(restartTimes);
-                autoRestartThread->setAutoRestartEnabled(true);
-                ui->function_status->setText("已開啟自動重啟伺服器");
-            } else {
-                ui->function_status->setText("你沒有設定需要重啟的時間");
-            }
-        }
-        else {
-            ui->rcon_response_textBrowser->setText("您尚未連接RCON伺服器");
-        }
-    } else {
+void MainWindow::updateRestartTimes() {
+    if (!ui->autorestart_with_time_checkBox->isChecked()) {
         autoRestartThread->setAutoRestartEnabled(false);
         ui->function_status->setText("已關閉自動重啟伺服器");
+        return;
+    }
+
+    restartTimes.clear();
+    for (int i = 0; i < 24; ++i) {
+        QCheckBox* checkBox = findChild<QCheckBox*>(QString("autorestart_with_time_checkBox_%1").arg(i, 2, 10, QChar('0')));
+        if (checkBox && checkBox->isChecked()) {
+            restartTimes.append(i);
+        }
+    }
+
+    if (!restartTimes.isEmpty()) {
+        autoRestartThread->setRestartTimes(restartTimes);
+        autoRestartThread->setAutoRestartEnabled(true);
+    } else {
+        autoRestartThread->setAutoRestartEnabled(false);
+        ui->function_status->setText("你沒有設定需要重啟的時間");
     }
 }

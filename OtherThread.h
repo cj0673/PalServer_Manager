@@ -26,6 +26,7 @@ private:
     RCONClient *rconClient;
     QMutex mutex;
     QWaitCondition condition;
+
     bool active;
     bool triggerRestartFlag;
 
